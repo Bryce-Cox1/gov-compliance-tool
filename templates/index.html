@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Government Compliance Tool</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏛️ Government Compliance Tool</h1>
+            <p class="subtitle">Australian Government Style Manual Compliance Checker</p>
+        </header>
+
+        <div class="input-section">
+            <h2>Paste Your Content</h2>
+            
+            <div class="controls">
+                <label for="targetGrade">Target Reading Grade:</label>
+                <select id="targetGrade">
+                    <option value="6">Grade 6</option>
+                    <option value="7" selected>Grade 7 (Recommended)</option>
+                    <option value="8">Grade 8</option>
+                    <option value="9">Grade 9</option>
+                </select>
+            </div>
+
+            <textarea 
+                id="inputText" 
+                placeholder="Paste your government content here...
+
+Example:
+The application should be submitted by the applicant to the relevant department. It is important that all fields are completed accurately before submission to ensure processing can commence."
+                rows="8"
+            ></textarea>
+
+            <div class="button-group">
+                <button id="analyzeBtn" class="btn-primary">
+                    <span id="btnText">Analyze & Rewrite</span>
+                    <span id="btnLoader" class="loader" style="display: none;"></span>
+                </button>
+                <button id="clearBtn" class="btn-secondary">Clear</button>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+            <div id="warningMessage" class="warning-message" style="display: none;"></div>
+        </div>
+
+        <div id="results" class="results-section" style="display: none;">
+            <h2>Results</h2>
+
+            <!-- Original Scores -->
+            <div class="score-card">
+                <h3>Original Text Scores</h3>
+                <div id="originalScores" class="scores-grid"></div>
+            </div>
+
+            <!-- Rewritten Text -->
+            <div id="rewrittenSection" style="display: none;">
+                <div class="score-card success">
+                    <h3>Improved Version</h3>
+                    <div class="confidence-badge" id="confidenceBadge"></div>
+                    <div id="properNounInfo" class="proper-noun-info" style="display: none;"></div>
+                    <div id="improvedScores" class="scores-grid"></div>
+                </div>
+
+                <div class="text-comparison">
+                    <div class="comparison-panel">
+                        <h4>Before</h4>
+                        <div id="beforeText" class="text-display"></div>
+                    </div>
+                    <div class="comparison-panel">
+                        <h4>After</h4>
+                        <div id="afterText" class="text-display improved"></div>
+                        <button id="copyBtn" class="btn-copy">Copy Improved Text</button>
+                    </div>
+                </div>
+
+                <div id="iterationInfo" class="info-message"></div>
+            </div>
+
+            <!-- Issues -->
+            <div class="issues-section">
+                <h3>Issues Found</h3>
+                <ul id="issuesList"></ul>
+            </div>
+        </div>
+
+        <footer>
+            <p>Built with ♟️ by OpenClaw • Scores are deterministic (not LLM guessing)</p>
+        </footer>
+    </div>
+
+    <script>
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const inputText = document.getElementById('inputText');
+        const targetGrade = document.getElementById('targetGrade');
+        const results = document.getElementById('results');
+        const errorMessage = document.getElementById('errorMessage');
+        const warningMessage = document.getElementById('warningMessage');
+        const btnText = document.getElementById('btnText');
+        const btnLoader = document.getElementById('btnLoader');
+
+        // Analyze button click
+        analyzeBtn.addEventListener('click', async () => {
+            const text = inputText.value.trim();
+            
+            if (!text) {
+                showError('Please paste some text to analyze');
+                return;
+            }
+
+            // Clear previous messages
+            hideError();
+            hideWarning();
+
+            // Show loading state
+            analyzeBtn.disabled = true;
+            btnText.style.display = 'none';
+            btnLoader.style.display = 'inline-block';
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        target_grade: parseFloat(targetGrade.value)
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+
+                if (data.warning) {
+                    showWarning(data.warning);
+                }
+
+                displayResults(data);
+
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                // Reset button
+                analyzeBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnLoader.style.display = 'none';
+            }
+        });
+
+        // Clear button
+        clearBtn.addEventListener('click', () => {
+            inputText.value = '';
+            results.style.display = 'none';
+            hideError();
+            hideWarning();
+        });
+
+        // Copy button
+        copyBtn.addEventListener('click', () => {
+            const text = document.getElementById('afterText').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                }, 2000);
+            });
+        });
+
+        function displayResults(data) {
+            results.style.display = 'block';
+
+            // Display original scores
+            displayScores('originalScores', data.original_scores);
+
+            // Display issues
+            displayIssues(data.original_scores.issues);
+
+            // If rewriting was done, show improved version
+            if (data.rewritten_text) {
+                document.getElementById('rewrittenSection').style.display = 'block';
+                document.getElementById('beforeText').textContent = data.original_text;
+                document.getElementById('afterText').textContent = data.rewritten_text;
+                displayScores('improvedScores', data.new_scores);
+                
+                // Display confidence badge
+                const confidence = data.confidence;
+                const badge = document.getElementById('confidenceBadge');
+                badge.textContent = `${confidence}% Confidence`;
+                badge.className = 'confidence-badge ' + (
+                    confidence >= 90 ? 'high' : 
+                    confidence >= 75 ? 'medium' : 
+                    'low'
+                );
+
+                // Display iteration info
+                document.getElementById('iterationInfo').textContent = 
+                    `${data.message} (${data.iterations} iteration${data.iterations !== 1 ? 's' : ''})`;
+                
+                // Display proper noun info if present
+                displayProperNounInfo(data.new_scores);
+            } else {
+                document.getElementById('rewrittenSection').style.display = 'none';
+            }
+
+            // Scroll to results
+            results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function displayScores(elementId, scores) {
+            const container = document.getElementById(elementId);
+            const checks = scores.compliance.checks;
+
+            const html = `
+                <div class="score-item ${checks.grade_level.passed ? 'pass' : 'fail'}">
+                    <span class="score-label">Reading Grade</span>
+                    <span class="score-value">${checks.grade_level.actual}</span>
+                    <span class="score-target">Target: ${checks.grade_level.target}</span>
+                    <span class="score-status">${checks.grade_level.passed ? '✓' : '✗'}</span>
+                </div>
+                <div class="score-item ${checks.avg_sentence_length.passed ? 'pass' : 'fail'}">
+                    <span class="score-label">Avg Sentence Length</span>
+                    <span class="score-value">${checks.avg_sentence_length.actual} words</span>
+                    <span class="score-target">Target: ${checks.avg_sentence_length.target}</span>
+                    <span class="score-status">${checks.avg_sentence_length.passed ? '✓' : '✗'}</span>
+                </div>
+                <div class="score-item ${checks.max_sentence_length.passed ? 'pass' : 'fail'}">
+                    <span class="score-label">Longest Sentence</span>
+                    <span class="score-value">${checks.max_sentence_length.actual} words</span>
+                    <span class="score-target">Target: ${checks.max_sentence_length.target}</span>
+                    <span class="score-status">${checks.max_sentence_length.passed ? '✓' : '✗'}</span>
+                </div>
+                <div class="score-item ${checks.passive_voice.passed ? 'pass' : 'fail'}">
+                    <span class="score-label">Passive Voice</span>
+                    <span class="score-value">${checks.passive_voice.actual}</span>
+                    <span class="score-target">Target: ${checks.passive_voice.target}</span>
+                    <span class="score-status">${checks.passive_voice.passed ? '✓' : '✗'}</span>
+                </div>
+                <div class="score-summary">
+                    <span class="score-label">Overall Compliance</span>
+                    <span class="score-value large">${scores.compliance.score}%</span>
+                    <span class="score-detail">${scores.compliance.passed}/${scores.compliance.total} checks passed</span>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function displayProperNounInfo(scores) {
+            const container = document.getElementById('properNounInfo');
+            
+            if (!scores.proper_nouns || scores.proper_nouns.count === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            const pn = scores.proper_nouns;
+            const contentGradePassed = pn.content_grade <= scores.target_grade + 1;
+            
+            // Generate proper noun list
+            let nounListHTML = '';
+            if (pn.detected && pn.detected.length > 0) {
+                nounListHTML = `
+                    <div class="proper-noun-list">
+                        <p style="margin: 10px 0 5px 0; font-size: 13px;">
+                            We noticed your text contained proper nouns. The following nouns have been left out of the content grade calculation because they can't be rewritten:
+                        </p>
+                        <ul style="margin: 5px 0 0 20px; font-size: 13px; list-style-type: disc;">
+                            ${pn.detected.map(noun => `<li>${noun}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            const html = `
+                <div class="proper-noun-notice ${contentGradePassed ? 'success' : 'warning'}">
+                    <strong>ℹ️ Proper Noun Context:</strong>
+                    <p>${pn.note}</p>
+                    ${nounListHTML}
+                    <div class="proper-noun-scores">
+                        <span>Reading grade with proper nouns: <strong>${scores.grade_level}</strong></span>
+                        <span>Reading grade excluding proper nouns: <strong class="${contentGradePassed ? 'pass' : 'fail'}">${pn.content_grade}</strong></span>
+                        <span>Proper Nouns: <strong>${pn.count}</strong> (${pn.density_percentage}% of text)</span>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+            container.style.display = 'block';
+        }
+
+        function displayIssues(issues) {
+            const list = document.getElementById('issuesList');
+            list.innerHTML = issues.map(issue => `<li>${issue}</li>`).join('');
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+
+        function hideError() {
+            errorMessage.style.display = 'none';
+        }
+
+        function showWarning(message) {
+            warningMessage.textContent = message;
+            warningMessage.style.display = 'block';
+        }
+
+        function hideWarning() {
+            warningMessage.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
