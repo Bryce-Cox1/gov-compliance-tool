@@ -25,6 +25,9 @@ class RewriteEngine:
         self.proper_noun_detector = ProperNounDetector()
         self.target_grade = target_grade
         self.max_iterations = 3
+        
+        # Model selection (configurable via env var)
+        self.model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
     
     def rewrite_with_validation(self, text: str) -> Dict:
         """
@@ -192,7 +195,7 @@ Rewrite the text to fix ALL the problems listed above while maintaining accuracy
         """Call LLM to rewrite text"""
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",  # Cheaper, faster, good enough for this
+                model=self.model,  # Configurable via OPENAI_MODEL env var (default: gpt-3.5-turbo)
                 messages=[
                     {"role": "system", "content": "You are an expert government content editor specializing in plain language. Your PRIMARY goal is to reduce reading grade level to Grade 7 by using simple, everyday words that anyone can understand. Replace ALL formal/bureaucratic language with conversational alternatives."},
                     {"role": "user", "content": prompt}
