@@ -4,16 +4,9 @@ Uses mathematical formulas and rule-based NLP (not LLM guessing)
 """
 
 import textstat
-import spacy
+import re
 from typing import Dict, List, Tuple
 from proper_noun_detector import ProperNounDetector
-
-# Load spaCy model (make sure to run: python -m spacy download en_core_web_sm)
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    print("⚠️  spaCy model not found. Run: python -m spacy download en_core_web_sm")
-    nlp = None
 
 
 class ComplianceScorer:
@@ -87,23 +80,27 @@ class ComplianceScorer:
     
     def _detect_passive_voice(self, text: str) -> Dict:
         """
-        Detect passive voice using spaCy NLP
-        Rule-based approach (~85-90% accurate)
+        Detect passive voice using regex patterns
+        Simple approach (~70-80% accurate, no heavy dependencies)
         """
-        if nlp is None:
-            return {'sentences': [], 'percentage': 0, 'count': 0}
-            
-        doc = nlp(text)
+        sentences = self._split_sentences(text)
         passive_sentences = []
         
-        for sent in doc.sents:
-            # spaCy marks passive with specific dependency tags
-            for token in sent:
-                if token.dep_ in ("auxpass", "nsubjpass"):
-                    passive_sentences.append(sent.text.strip())
+        # Common passive voice patterns
+        passive_patterns = [
+            r'\b(is|are|was|were|be|been|being)\s+\w+ed\b',  # be + past participle
+            r'\b(is|are|was|were|be|been|being)\s+\w+en\b',  # be + past participle (irregular)
+            r'\bwas\s+\w+ed\s+by\b',  # explicit "was X-ed by"
+            r'\bwere\s+\w+ed\s+by\b',  # explicit "were X-ed by"
+        ]
+        
+        for sent in sentences:
+            for pattern in passive_patterns:
+                if re.search(pattern, sent, re.IGNORECASE):
+                    passive_sentences.append(sent)
                     break
         
-        total_sentences = len(list(doc.sents))
+        total_sentences = len(sentences)
         passive_count = len(passive_sentences)
         passive_pct = (passive_count / max(total_sentences, 1)) * 100
         
