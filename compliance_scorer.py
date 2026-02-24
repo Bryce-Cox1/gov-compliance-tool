@@ -3,10 +3,10 @@ Compliance Scorer - Deterministic scoring for government content
 Uses mathematical formulas and rule-based NLP (not LLM guessing)
 """
 
-import textstat
 import re
 from typing import Dict, List, Tuple
 from proper_noun_detector import ProperNounDetector
+from readability import ReadabilityScorer
 
 
 class ComplianceScorer:
@@ -25,9 +25,9 @@ class ComplianceScorer:
             return self._empty_score()
             
         # Readability (mathematical formulas - guaranteed accurate)
-        grade_level = textstat.flesch_kincaid_grade(text)
-        flesch_score = textstat.flesch_reading_ease(text)
-        smog_index = textstat.smog_index(text)
+        grade_level = ReadabilityScorer.flesch_kincaid_grade(text)
+        flesch_score = ReadabilityScorer.flesch_reading_ease(text)
+        smog_index = ReadabilityScorer.smog_index(text)
         
         # Sentence analysis (simple counting)
         sentences = self._split_sentences(text)
