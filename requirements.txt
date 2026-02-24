@@ -12,5 +12,8 @@ python-dotenv==1.0.0
 # Readability scoring (deterministic formulas)
 textstat==0.7.3
 
+# Python 3.14+ compatibility
+setuptools>=75.0.0
+
 # OpenAI for rewriting
 openai>=1.30.0
