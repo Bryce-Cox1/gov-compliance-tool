@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gov Compliance Assistant</title>
+    <link rel="stylesheet" href="/static/style-chat.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <h1>Gov Compliance Assistant</h1>
+                </div>
+                <div class="header-meta">
+                    <span class="grade-badge">
+                        <span class="badge-label">Target Grade:</span>
+                        <select id="headerGrade" class="grade-select">
+                            <option value="6">6</option>
+                            <option value="7" selected>7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                        </select>
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Chat Container -->
+        <main class="chat-container" id="chatContainer" role="main" aria-label="Compliance analysis chat">
+            <div class="chat-messages" id="chatMessages" role="log" aria-live="polite" aria-atomic="false">
+                <!-- Welcome Message -->
+                <div class="message-wrapper ai-message">
+                    <div class="message-avatar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            <p>👋 Hi! I'm your Government Compliance Assistant.</p>
+                            <p>I'll help you check your content against the <strong>Australian Government Style Manual</strong> standards. I can:</p>
+                            <ul>
+                                <li>✓ Score your text for reading level and compliance</li>
+                                <li>✓ Rewrite it to meet accessibility standards</li>
+                                <li>✓ Explain what needs improvement</li>
+                            </ul>
+                            <p>Just paste your content below to get started!</p>
+                        </div>
+                        <div class="message-timestamp">Just now</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState">
+                <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <h2>Paste your government content</h2>
+                <p>I'll analyze it against AGSM standards and help you improve it</p>
+            </div>
+        </main>
+
+        <!-- Input Area -->
+        <div class="input-container">
+            <div class="input-wrapper">
+                <textarea 
+                    id="messageInput" 
+                    class="message-input"
+                    placeholder="Paste your government content here, or ask me a question..."
+                    rows="3"
+                    aria-label="Government content to analyze"
+                ></textarea>
+                <div class="input-actions">
+                    <button id="clearBtn" class="btn-icon" title="Clear input" aria-label="Clear input">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                    <button id="sendBtn" class="btn-primary" aria-label="Analyze text for compliance">
+                        <span id="sendBtnText">Analyze</span>
+                        <svg id="sendBtnIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                        </svg>
+                        <span id="sendBtnLoader" class="btn-loader" style="display: none;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                            </svg>
+                        </span>
+                    </button>
+                </div>
+            </div>
+            <div class="input-hint">
+                Press <kbd>Enter</kbd> to send, <kbd>Shift+Enter</kbd> for new line
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let isAnalyzing = false;
+        let messageHistory = [];
+
+        // Elements
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const emptyState = document.getElementById('emptyState');
+        const headerGrade = document.getElementById('headerGrade');
+        const sendBtnText = document.getElementById('sendBtnText');
+        const sendBtnIcon = document.getElementById('sendBtnIcon');
+        const sendBtnLoader = document.getElementById('sendBtnLoader');
+
+        // Utility: Format timestamp
+        function getTimestamp() {
+            const now = new Date();
+            return now.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Utility: Add user message
+        function addUserMessage(text) {
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message-wrapper user-message';
+            messageEl.innerHTML = `
+                <div class="message-content">
+                    <div class="message-bubble">
+                        <p>${escapeHtml(text.length > 500 ? text.substring(0, 500) + '...' : text)}</p>
+                    </div>
+                    <div class="message-timestamp">${getTimestamp()}</div>
+                </div>
+                <div class="message-avatar user-avatar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                </div>
+            `;
+            chatMessages.appendChild(messageEl);
+            scrollToBottom();
+            hideEmptyState();
+        }
+
+        // Utility: Add AI message
+        function addAIMessage(content, streaming = false) {
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message-wrapper ai-message' + (streaming ? ' streaming' : '');
+            messageEl.innerHTML = `
+                <div class="message-avatar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div class="message-content">
+                    <div class="message-bubble">
+                        ${content}
+                    </div>
+                    <div class="message-timestamp">${getTimestamp()}</div>
+                </div>
+            `;
+            chatMessages.appendChild(messageEl);
+            scrollToBottom();
+            return messageEl;
+        }
+
+        // Utility: Create score card
+        function createScoreCard(scores, title = 'Compliance Results') {
+            const checks = scores.compliance.checks;
+            const overallPassed = scores.compliance.score >= 75;
+            
+            return `
+                <div class="insight-card">
+                    <div class="card-header">
+                        <h3>${title}</h3>
+                        <span class="card-badge ${overallPassed ? 'success' : 'warning'}">
+                            ${scores.compliance.score}% compliant
+                        </span>
+                    </div>
+                    <div class="metrics-grid">
+                        <div class="metric-item ${checks.grade_level.passed ? 'pass' : 'fail'}">
+                            <div class="metric-icon">
+                                ${checks.grade_level.passed ? '✓' : '⚠'}
+                            </div>
+                            <div class="metric-details">
+                                <span class="metric-label">Reading Grade</span>
+                                <span class="metric-value">${checks.grade_level.actual}</span>
+                                <span class="metric-target">Target: ${checks.grade_level.target}</span>
+                            </div>
+                        </div>
+                        <div class="metric-item ${checks.avg_sentence_length.passed ? 'pass' : 'fail'}">
+                            <div class="metric-icon">
+                                ${checks.avg_sentence_length.passed ? '✓' : '⚠'}
+                            </div>
+                            <div class="metric-details">
+                                <span class="metric-label">Avg Sentence</span>
+                                <span class="metric-value">${checks.avg_sentence_length.actual} words</span>
+                                <span class="metric-target">Target: ${checks.avg_sentence_length.target}</span>
+                            </div>
+                        </div>
+                        <div class="metric-item ${checks.max_sentence_length.passed ? 'pass' : 'fail'}">
+                            <div class="metric-icon">
+                                ${checks.max_sentence_length.passed ? '✓' : '⚠'}
+                            </div>
+                            <div class="metric-details">
+                                <span class="metric-label">Longest Sentence</span>
+                                <span class="metric-value">${checks.max_sentence_length.actual} words</span>
+                                <span class="metric-target">Target: ${checks.max_sentence_length.target}</span>
+                            </div>
+                        </div>
+                        <div class="metric-item ${checks.passive_voice.passed ? 'pass' : 'fail'}">
+                            <div class="metric-icon">
+                                ${checks.passive_voice.passed ? '✓' : '⚠'}
+                            </div>
+                            <div class="metric-details">
+                                <span class="metric-label">Passive Voice</span>
+                                <span class="metric-value">${checks.passive_voice.actual}</span>
+                                <span class="metric-target">Target: ${checks.passive_voice.target}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Utility: Create comparison card
+        function createComparisonCard(original, improved, confidence) {
+            return `
+                <div class="insight-card comparison-card">
+                    <div class="card-header">
+                        <h3>Improved Version</h3>
+                        <span class="card-badge ${confidence >= 90 ? 'success' : confidence >= 75 ? 'warning' : 'error'}">
+                            ${confidence}% confidence
+                        </span>
+                    </div>
+                    <div class="comparison-grid">
+                        <div class="comparison-item">
+                            <h4>Before</h4>
+                            <div class="text-display">${escapeHtml(original)}</div>
+                        </div>
+                        <div class="comparison-item improved">
+                            <h4>After</h4>
+                            <div class="text-display">${escapeHtml(improved)}</div>
+                            <button class="btn-action copy-btn" onclick="copyToClipboard('${escapeHtml(improved).replace(/'/g, "\\'")}')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                Copy improved text
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Utility: Scroll to bottom
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Utility: Hide empty state
+        function hideEmptyState() {
+            if (emptyState) {
+                emptyState.style.display = 'none';
+            }
+        }
+
+        // Utility: Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Utility: Copy to clipboard
+        window.copyToClipboard = function(text) {
+            // Unescape the HTML
+            const textarea = document.createElement('textarea');
+            textarea.innerHTML = text;
+            const unescaped = textarea.value;
+            
+            navigator.clipboard.writeText(unescaped).then(() => {
+                // Find the button and show feedback
+                const buttons = document.querySelectorAll('.copy-btn');
+                buttons.forEach(btn => {
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>Copied!';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            });
+        };
+
+        // Handle send
+        async function handleSend() {
+            const text = messageInput.value.trim();
+            
+            if (!text || isAnalyzing) return;
+
+            // Add user message
+            addUserMessage(text);
+            messageInput.value = '';
+            
+            // Set analyzing state
+            isAnalyzing = true;
+            sendBtn.disabled = true;
+            sendBtnText.style.display = 'none';
+            sendBtnIcon.style.display = 'none';
+            sendBtnLoader.style.display = 'block';
+
+            // Add thinking message
+            const thinkingMsg = addAIMessage(`
+                <p class="thinking-text">
+                    <span class="thinking-dots"></span>
+                    Analyzing your text against AGSM standards...
+                </p>
+            `, true);
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: text,
+                        target_grade: parseFloat(headerGrade.value)
+                    })
+                });
+
+                const data = await response.json();
+
+                // Remove thinking message
+                thinkingMsg.remove();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+
+                // Add results message
+                let resultsContent = `<p>I've analyzed your text. Here's what I found:</p>`;
+                resultsContent += createScoreCard(data.original_scores, 'Original Text');
+
+                if (data.rewritten_text) {
+                    resultsContent += `
+                        <p style="margin-top: 1rem;">I've also created an improved version that meets the standards:</p>
+                    `;
+                    resultsContent += createScoreCard(data.new_scores, 'Improved Text');
+                    resultsContent += createComparisonCard(data.original_text, data.rewritten_text, data.confidence);
+                    resultsContent += `
+                        <p class="info-text">
+                            <em>${data.message} (${data.iterations} iteration${data.iterations !== 1 ? 's' : ''})</em>
+                        </p>
+                    `;
+                } else if (data.warning) {
+                    resultsContent += `
+                        <p class="warning-text">
+                            ⚠️ ${data.warning}
+                        </p>
+                    `;
+                }
+
+                addAIMessage(resultsContent);
+
+            } catch (error) {
+                thinkingMsg.remove();
+                addAIMessage(`
+                    <p class="error-text">
+                        ❌ Sorry, something went wrong: ${error.message}
+                    </p>
+                    <p>Please try again or check your connection.</p>
+                `);
+            } finally {
+                isAnalyzing = false;
+                sendBtn.disabled = false;
+                sendBtnText.style.display = 'inline';
+                sendBtnIcon.style.display = 'inline';
+                sendBtnLoader.style.display = 'none';
+            }
+        }
+
+        // Event listeners
+        sendBtn.addEventListener('click', handleSend);
+
+        clearBtn.addEventListener('click', () => {
+            messageInput.value = '';
+            messageInput.focus();
+        });
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        });
+
+        // Auto-resize textarea
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+        });
+
+        // Focus input on load
+        messageInput.focus();
+    </script>
+</body>
+</html>
