@@ -130,15 +130,16 @@ async def health_check():
     """Health check endpoint"""
     api_key_configured = bool(os.getenv('OPENAI_API_KEY'))
     
+    spacy_model = False
     try:
         import spacy
-        spacy_model = True
         try:
             nlp = spacy.load("en_core_web_sm")
+            spacy_model = True
         except:
-            spacy_model = False
-    except:
-        spacy_model = False
+            pass
+    except ImportError:
+        pass
     
     return JSONResponse(content={
         "status": "healthy",
@@ -147,7 +148,7 @@ async def health_check():
         "features": {
             "scoring": True,
             "rewriting": api_key_configured,
-            "passive_voice_detection": spacy_model
+            "passive_voice_detection": "regex" if not spacy_model else "spacy"
         }
     })
 

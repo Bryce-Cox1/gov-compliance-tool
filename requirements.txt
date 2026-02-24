@@ -12,11 +12,5 @@ python-dotenv==1.0.0
 # Readability scoring (deterministic formulas)
 textstat==0.7.3
 
-# NLP for passive voice detection - REMOVED (too heavy for Render free tier)
-# Using simple regex-based detection instead
-
 # OpenAI for rewriting
 openai>=1.30.0
-
-# Note: After installing, run this command to download spaCy model:
-# python -m spacy download en_core_web_sm

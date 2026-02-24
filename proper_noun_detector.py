@@ -4,18 +4,28 @@ Identify unavoidable proper nouns that inflate reading grades
 """
 
 import re
-import spacy
 from typing import List, Dict, Set
+
+# Optional spacy import
+try:
+    import spacy
+    SPACY_AVAILABLE = True
+except ImportError:
+    SPACY_AVAILABLE = False
+    spacy = None
 
 
 class ProperNounDetector:
     """Detect proper nouns (Acts, departments, schemes) that can't be simplified"""
     
     def __init__(self):
-        try:
-            self.nlp = spacy.load("en_core_web_sm")
-        except OSError:
-            print("Warning: spaCy model not loaded. Install with: python -m spacy download en_core_web_sm")
+        if SPACY_AVAILABLE:
+            try:
+                self.nlp = spacy.load("en_core_web_sm")
+            except OSError:
+                print("Warning: spaCy model not loaded. Install with: python -m spacy download en_core_web_sm")
+                self.nlp = None
+        else:
             self.nlp = None
     
     # Regex patterns for common government proper nouns
