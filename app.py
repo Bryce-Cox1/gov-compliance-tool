@@ -4,7 +4,10 @@ Simple web UI for testing the scoring and rewriting engine
 """
 
 import os
-from fastapi import FastAPI, Request, Form
+import json
+from datetime import datetime
+from pathlib import Path
+from fastapi import FastAPI, Request, Form, File, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -122,6 +125,69 @@ async def score_only(request: AnalysisRequest):
         return JSONResponse(
             status_code=500,
             content={"error": f"Scoring failed: {str(e)}"}
+        )
+
+
+@app.post("/api/feedback")
+async def submit_feedback(
+    feedback: str = Form(...),
+    screenshot: UploadFile = File(None)
+):
+    """
+    Submit user feedback with optional screenshot
+    Stores feedback in feedback/feedback.json for analysis
+    """
+    try:
+        # Create feedback directory if it doesn't exist
+        feedback_dir = Path("feedback")
+        feedback_dir.mkdir(exist_ok=True)
+        
+        # Prepare feedback entry
+        feedback_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "feedback": feedback,
+            "screenshot": None
+        }
+        
+        # Save screenshot if provided
+        if screenshot and screenshot.filename:
+            # Create unique filename with timestamp
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            ext = Path(screenshot.filename).suffix
+            screenshot_filename = f"screenshot_{timestamp}{ext}"
+            screenshot_path = feedback_dir / screenshot_filename
+            
+            # Save file
+            with open(screenshot_path, "wb") as f:
+                content = await screenshot.read()
+                f.write(content)
+            
+            feedback_entry["screenshot"] = screenshot_filename
+        
+        # Load existing feedback or create new list
+        feedback_file = feedback_dir / "feedback.json"
+        if feedback_file.exists():
+            with open(feedback_file, "r") as f:
+                feedback_data = json.load(f)
+        else:
+            feedback_data = []
+        
+        # Append new feedback
+        feedback_data.append(feedback_entry)
+        
+        # Save updated feedback
+        with open(feedback_file, "w") as f:
+            json.dump(feedback_data, f, indent=2)
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Feedback submitted successfully"
+        })
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to submit feedback: {str(e)}"}
         )
 
 

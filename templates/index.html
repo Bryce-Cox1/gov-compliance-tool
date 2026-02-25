@@ -7,6 +7,33 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <!-- MVP Feedback Banner -->
+    <div class="mvp-banner">
+        <p>This is an MVP, help us make it better by <a href="#" id="feedbackLink">sharing your feedback</a></p>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedbackModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Share Your Feedback</h2>
+            <p>Help us improve the tool by sharing your thoughts, suggestions, or issues.</p>
+            <form id="feedbackForm">
+                <label for="feedbackText">Your Feedback:</label>
+                <textarea id="feedbackText" name="feedback" rows="6" placeholder="Tell us what's working, what's not, or what you'd like to see..." required></textarea>
+                
+                <label for="feedbackScreenshot">Screenshot (optional):</label>
+                <input type="file" id="feedbackScreenshot" name="screenshot" accept="image/*">
+                
+                <div class="button-group">
+                    <button type="submit" class="btn-primary">Submit Feedback</button>
+                    <button type="button" class="btn-secondary" id="cancelFeedback">Cancel</button>
+                </div>
+                <div id="feedbackStatus" class="feedback-status"></div>
+            </form>
+        </div>
+    </div>
+
     <div class="container">
         <header>
             <h1>🏛️ Government Compliance Tool</h1>
@@ -88,7 +115,7 @@ The application should be submitted by the applicant to the relevant department.
         </div>
 
         <footer>
-            <p>Built with ♟️ by OpenClaw • Scores are deterministic (not LLM guessing)</p>
+            <p>AI can make mistakes, always check results.</p>
         </footer>
     </div>
 
@@ -320,6 +347,83 @@ The application should be submitted by the applicant to the relevant department.
         function hideWarning() {
             warningMessage.style.display = 'none';
         }
+
+        // Feedback Modal Functionality
+        const feedbackModal = document.getElementById('feedbackModal');
+        const feedbackLink = document.getElementById('feedbackLink');
+        const closeModal = document.querySelector('.close');
+        const cancelFeedback = document.getElementById('cancelFeedback');
+        const feedbackForm = document.getElementById('feedbackForm');
+        const feedbackStatus = document.getElementById('feedbackStatus');
+
+        // Open modal
+        feedbackLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            feedbackModal.style.display = 'block';
+        });
+
+        // Close modal
+        closeModal.addEventListener('click', () => {
+            feedbackModal.style.display = 'none';
+            feedbackForm.reset();
+            feedbackStatus.textContent = '';
+        });
+
+        cancelFeedback.addEventListener('click', () => {
+            feedbackModal.style.display = 'none';
+            feedbackForm.reset();
+            feedbackStatus.textContent = '';
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === feedbackModal) {
+                feedbackModal.style.display = 'none';
+                feedbackForm.reset();
+                feedbackStatus.textContent = '';
+            }
+        });
+
+        // Submit feedback
+        feedbackForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('feedback', document.getElementById('feedbackText').value);
+            
+            const screenshotFile = document.getElementById('feedbackScreenshot').files[0];
+            if (screenshotFile) {
+                formData.append('screenshot', screenshotFile);
+            }
+
+            try {
+                feedbackStatus.textContent = 'Submitting...';
+                feedbackStatus.className = 'feedback-status';
+                
+                const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    feedbackStatus.textContent = 'Thank you! Your feedback has been submitted.';
+                    feedbackStatus.className = 'feedback-status success';
+                    setTimeout(() => {
+                        feedbackModal.style.display = 'none';
+                        feedbackForm.reset();
+                        feedbackStatus.textContent = '';
+                    }, 2000);
+                } else {
+                    feedbackStatus.textContent = data.error || 'Failed to submit feedback. Please try again.';
+                    feedbackStatus.className = 'feedback-status error';
+                }
+            } catch (error) {
+                feedbackStatus.textContent = 'Failed to submit feedback. Please try again.';
+                feedbackStatus.className = 'feedback-status error';
+            }
+        });
     </script>
 </body>
 </html>
