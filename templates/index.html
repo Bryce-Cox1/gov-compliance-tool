@@ -168,7 +168,7 @@ The application should be submitted by the applicant to the relevant department.
             const msgDiv = document.createElement('div');
             msgDiv.classList.add('message', 'assistant');
 
-            let content = '';
+            let content = '<p>Here\'s my analysis of your text:</p>';
 
             // Original Scores
             content += `
@@ -182,18 +182,9 @@ The application should be submitted by the applicant to the relevant department.
 
             // Rewritten Text if available
             if (data.rewritten_text) {
-                content += `
-                    <div class="score-card success">
-                        <h3>Improved Version</h3>
-                        <div class="confidence-badge ${getConfidenceClass(data.confidence)}">
-                            ${data.confidence}% Confidence
-                        </div>
-                        <div id="properNounInfo">${generateProperNounInfo(data.new_scores)}</div>
-                        <div class="scores-grid">
-                            ${generateScoresHTML(data.new_scores)}
-                        </div>
-                    </div>
+                content += '<p>I rewrote it to better meet the guidelines. Improved version:</p>';
 
+                content += `
                     <div class="text-comparison">
                         <div class="comparison-panel">
                             <h4>Before</h4>
@@ -205,17 +196,34 @@ The application should be submitted by the applicant to the relevant department.
                             <button class="btn-copy">Copy Improved Text</button>
                         </div>
                     </div>
+                `;
 
+                content += '<p>Improved scores:</p>';
+
+                content += `
+                    <div class="score-card success">
+                        <div class="confidence-badge ${getConfidenceClass(data.confidence)}">
+                            ${data.confidence}% Confidence
+                        </div>
+                        <div id="properNounInfo">${generateProperNounInfo(data.new_scores)}</div>
+                        <div class="scores-grid">
+                            ${generateScoresHTML(data.new_scores)}
+                        </div>
+                    </div>
+                `;
+
+                content += `
                     <div class="info-message">
-                        ${data.message} (${data.iterations} iteration${data.iterations !== 1 ? 's' : ''})
+                        This rewrite has ${data.confidence}% confidence (${data.iterations} iteration${data.iterations !== 1 ? 's' : ''}). ${data.message}
                     </div>
                 `;
             }
 
             // Issues
+            content += '<p>Key issues found:</p>';
+
             content += `
                 <div class="issues-section">
-                    <h3>Issues Found</h3>
                     <ul>
                         ${data.original_scores.issues.map(issue => `<li>${issue}</li>`).join('')}
                     </ul>
