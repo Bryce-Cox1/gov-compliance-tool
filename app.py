@@ -30,7 +30,7 @@ templates = Jinja2Templates(directory="templates")
 
 class AnalysisRequest(BaseModel):
     text: str
-    target_grade: float = 7.0
+    target_grade: float = 7.0\n    content_type: str = "General"
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -79,7 +79,7 @@ async def analyze_text(request: AnalysisRequest):
             })
         
         # Full analysis with rewriting
-        rewrite_engine = RewriteEngine(api_key=api_key, target_grade=request.target_grade)
+        rewrite_engine = RewriteEngine(api_key=api_key, target_grade=request.target_grade, content_type=request.content_type)
         result = rewrite_engine.rewrite_with_validation(request.text)
         
         return JSONResponse(content={

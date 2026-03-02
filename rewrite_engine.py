@@ -14,7 +14,7 @@ from proper_noun_detector import ProperNounDetector
 class RewriteEngine:
     """Rewrite text to meet AGSM requirements with validation"""
     
-    def __init__(self, api_key: str = None, target_grade: float = 7.0):
+    def __init__(self, api_key: str = None, target_grade: float = 7.0, content_type: str = "General"):
         self.api_key = api_key or os.getenv('OPENAI_API_KEY')
         if not self.api_key:
             raise ValueError("OpenAI API key required. Set OPENAI_API_KEY environment variable.")
@@ -23,7 +23,7 @@ class RewriteEngine:
         self.scorer = ComplianceScorer(target_grade=target_grade)
         self.agsm_checker = AGSMRules()
         self.proper_noun_detector = ProperNounDetector()
-        self.target_grade = target_grade
+        self.target_grade = target_grade\n        self.content_type = content_type
         self.max_iterations = 3
         
         # Model selection (configurable via env var)
