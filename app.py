@@ -30,7 +30,8 @@ templates = Jinja2Templates(directory="templates")
 
 class AnalysisRequest(BaseModel):
     text: str
-    target_grade: float = 7.0\n    content_type: str = "General"
+    target_grade: float = 7.0
+    content_type: str = "General"
 
 
 @app.get("/", response_class=HTMLResponse)
